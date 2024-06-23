@@ -1,0 +1,130 @@
+openapi: 3.0.3
+info:
+  version: 0.0.2
+  title: OgiriGenerator API
+paths:
+  /users:
+    get:
+      operationId: GetUser
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+    post:
+      operationId: PostUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/User"
+      responses:
+        "200":
+          description: OK
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /answers:
+    post:
+      operationId: PostAnswer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Answer"
+      responses:
+        "200":
+          description: OK
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /answers/byUserId:
+    get:
+      operationId: GetAnswersByUserId
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Answer"
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /answers/byAnswerId:
+    get:
+      operationId: GetAnswerByAnswerId
+      parameters:
+        - name: answerId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Answer"
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        userId:
+          type: integer
+      required:
+        - userId
+    Answer:
+      type: object
+      properties:
+        answerId:
+          type: integer
+        userId:
+          type: integer
+        question:
+          type: string
+        answer:
+          type: string
+      required:
+        - answerId
+        - userId
+        - question
+        - answer
+    DefaultErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
