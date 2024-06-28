@@ -5,20 +5,19 @@ import (
 	"net/http"
 
 	oapi "github.com/Tanaka-Junsei/OgiriGenerator_backend/generated"
-
 	oapiMiddleware "github.com/deepmap/oapi-codegen/pkg/middleware"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// apiControllerは、APIエンドポイントのハンドラーを実装します。
 type apiController struct{}
 
 // OpenAPI で定義された (GET /users) の実装
 func (a apiController) GetUser(ctx echo.Context) error {
-	// OpenApi で生成された User モデルを使ってレスポンスを返す
+	// OpenAPI で生成された User モデルを使ってレスポンスを返す
 	return ctx.JSON(http.StatusOK, &oapi.User{
-		UserId: 1,
+		UserId: "1",
 	})
 }
 
@@ -50,10 +49,11 @@ func (a apiController) PostAnswer(ctx echo.Context) error {
 func (a apiController) GetAnswerByAnswerId(ctx echo.Context, params oapi.GetAnswerByAnswerIdParams) error {
 	// 仮のデータを返す
 	return ctx.JSON(http.StatusOK, &oapi.Answer{
-		AnswerId: params.AnswerId,
-		Answer:   "This is a sample answer",
-		Question: "What is the question?",
-		UserId:   1,
+		AnswerId:   params.AnswerId,
+		Answer:     "This is a sample answer",
+		Question:   "What is the question?",
+		UserId:     "1",
+		QuestionId: "1",
 	})
 }
 
@@ -62,26 +62,46 @@ func (a apiController) GetAnswersByUserId(ctx echo.Context, params oapi.GetAnswe
 	// 仮のデータを返す
 	answers := []oapi.Answer{
 		{
-			AnswerId: 1,
-			Answer:   "Answer 1",
-			Question: "Question 1",
-			UserId:   params.UserId,
+			AnswerId:   "1",
+			Answer:     "Answer 1",
+			Question:   "Question 1",
+			UserId:     params.UserId,
+			QuestionId: "1",
 		},
 		{
-			AnswerId: 2,
-			Answer:   "Answer 2",
-			Question: "Question 2",
-			UserId:   params.UserId,
+			AnswerId:   "2",
+			Answer:     "Answer 2",
+			Question:   "Question 2",
+			UserId:     params.UserId,
+			QuestionId: "2",
 		},
 	}
 	return ctx.JSON(http.StatusOK, answers)
+}
+
+// OpenAPI で定義された (POST /questions/generate) の実装
+func (a apiController) GenerateQuestion(ctx echo.Context) error {
+	// 仮のデータを返す
+	return ctx.JSON(http.StatusOK, &oapi.Question{
+		QuestionId: "1",
+		Question:   "This is a generated question",
+	})
+}
+
+// OpenAPI で定義された (GET /questions) の実装
+func (a apiController) GetQuestion(ctx echo.Context) error {
+	// 仮のデータを返す
+	return ctx.JSON(http.StatusOK, &oapi.Question{
+		QuestionId: "1",
+		Question:   "This is a sample question",
+	})
 }
 
 func main() {
 	// Echo のインスタンス作成
 	e := echo.New()
 
-	// OpenApi 仕様に沿ったリクエストかバリデーションをするミドルウェアを設定
+	// OpenAPI 仕様に沿ったリクエストかバリデーションをするミドルウェアを設定
 	swagger, err := oapi.GetSwagger()
 	if err != nil {
 		panic(err)

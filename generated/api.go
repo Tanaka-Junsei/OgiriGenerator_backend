@@ -23,10 +23,11 @@ import (
 
 // Answer defines model for Answer.
 type Answer struct {
-	Answer   string `json:"answer"`
-	AnswerId int    `json:"answerId"`
-	Question string `json:"question"`
-	UserId   int    `json:"userId"`
+	Answer     string `json:"answer"`
+	AnswerId   string `json:"answerId"`
+	Question   string `json:"question"`
+	QuestionId string `json:"questionId"`
+	UserId     string `json:"userId"`
 }
 
 // DefaultErrorResponse defines model for DefaultErrorResponse.
@@ -34,19 +35,25 @@ type DefaultErrorResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// Question defines model for Question.
+type Question struct {
+	Question   string `json:"question"`
+	QuestionId string `json:"questionId"`
+}
+
 // User defines model for User.
 type User struct {
-	UserId int `json:"userId"`
+	UserId string `json:"userId"`
 }
 
 // GetAnswerByAnswerIdParams defines parameters for GetAnswerByAnswerId.
 type GetAnswerByAnswerIdParams struct {
-	AnswerId int `form:"answerId" json:"answerId"`
+	AnswerId string `form:"answerId" json:"answerId"`
 }
 
 // GetAnswersByUserIdParams defines parameters for GetAnswersByUserId.
 type GetAnswersByUserIdParams struct {
-	UserId int `form:"userId" json:"userId"`
+	UserId string `form:"userId" json:"userId"`
 }
 
 // PostAnswerJSONRequestBody defines body for PostAnswer for application/json ContentType.
@@ -139,6 +146,12 @@ type ClientInterface interface {
 	// GetAnswersByUserId request
 	GetAnswersByUserId(ctx context.Context, params *GetAnswersByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetQuestion request
+	GetQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GenerateQuestion request
+	GenerateQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetUser request
 	GetUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -186,6 +199,30 @@ func (c *Client) GetAnswerByAnswerId(ctx context.Context, params *GetAnswerByAns
 
 func (c *Client) GetAnswersByUserId(ctx context.Context, params *GetAnswersByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAnswersByUserIdRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetQuestionRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GenerateQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGenerateQuestionRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -362,6 +399,60 @@ func NewGetAnswersByUserIdRequest(server string, params *GetAnswersByUserIdParam
 	return req, nil
 }
 
+// NewGetQuestionRequest generates requests for GetQuestion
+func NewGetQuestionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGenerateQuestionRequest generates requests for GenerateQuestion
+func NewGenerateQuestionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions/generate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetUserRequest generates requests for GetUser
 func NewGetUserRequest(server string) (*http.Request, error) {
 	var err error
@@ -483,6 +574,12 @@ type ClientWithResponsesInterface interface {
 	// GetAnswersByUserIdWithResponse request
 	GetAnswersByUserIdWithResponse(ctx context.Context, params *GetAnswersByUserIdParams, reqEditors ...RequestEditorFn) (*GetAnswersByUserIdResponse, error)
 
+	// GetQuestionWithResponse request
+	GetQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetQuestionResponse, error)
+
+	// GenerateQuestionWithResponse request
+	GenerateQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GenerateQuestionResponse, error)
+
 	// GetUserWithResponse request
 	GetUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
 
@@ -560,10 +657,56 @@ func (r GetAnswersByUserIdResponse) StatusCode() int {
 	return 0
 }
 
+type GetQuestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Question
+	JSONDefault  *DefaultErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetQuestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GenerateQuestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Question
+	JSONDefault  *DefaultErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GenerateQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GenerateQuestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *User
+	JSON200      *[]User
 	JSONDefault  *DefaultErrorResponse
 }
 
@@ -638,6 +781,24 @@ func (c *ClientWithResponses) GetAnswersByUserIdWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetAnswersByUserIdResponse(rsp)
+}
+
+// GetQuestionWithResponse request returning *GetQuestionResponse
+func (c *ClientWithResponses) GetQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetQuestionResponse, error) {
+	rsp, err := c.GetQuestion(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetQuestionResponse(rsp)
+}
+
+// GenerateQuestionWithResponse request returning *GenerateQuestionResponse
+func (c *ClientWithResponses) GenerateQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GenerateQuestionResponse, error) {
+	rsp, err := c.GenerateQuestion(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGenerateQuestionResponse(rsp)
 }
 
 // GetUserWithResponse request returning *GetUserResponse
@@ -758,6 +919,72 @@ func ParseGetAnswersByUserIdResponse(rsp *http.Response) (*GetAnswersByUserIdRes
 	return response, nil
 }
 
+// ParseGetQuestionResponse parses an HTTP response from a GetQuestionWithResponse call
+func ParseGetQuestionResponse(rsp *http.Response) (*GetQuestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Question
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DefaultErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGenerateQuestionResponse parses an HTTP response from a GenerateQuestionWithResponse call
+func ParseGenerateQuestionResponse(rsp *http.Response) (*GenerateQuestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GenerateQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Question
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DefaultErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetUserResponse parses an HTTP response from a GetUserWithResponse call
 func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -773,7 +1000,7 @@ func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest User
+		var dest []User
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -828,6 +1055,12 @@ type ServerInterface interface {
 
 	// (GET /answers/byUserId)
 	GetAnswersByUserId(ctx echo.Context, params GetAnswersByUserIdParams) error
+
+	// (GET /questions)
+	GetQuestion(ctx echo.Context) error
+
+	// (GET /questions/generate)
+	GenerateQuestion(ctx echo.Context) error
 
 	// (GET /users)
 	GetUser(ctx echo.Context) error
@@ -886,6 +1119,24 @@ func (w *ServerInterfaceWrapper) GetAnswersByUserId(ctx echo.Context) error {
 	return err
 }
 
+// GetQuestion converts echo context to params.
+func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetQuestion(ctx)
+	return err
+}
+
+// GenerateQuestion converts echo context to params.
+func (w *ServerInterfaceWrapper) GenerateQuestion(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GenerateQuestion(ctx)
+	return err
+}
+
 // GetUser converts echo context to params.
 func (w *ServerInterfaceWrapper) GetUser(ctx echo.Context) error {
 	var err error
@@ -935,6 +1186,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/answers", wrapper.PostAnswer)
 	router.GET(baseURL+"/answers/byAnswerId", wrapper.GetAnswerByAnswerId)
 	router.GET(baseURL+"/answers/byUserId", wrapper.GetAnswersByUserId)
+	router.GET(baseURL+"/questions", wrapper.GetQuestion)
+	router.GET(baseURL+"/questions/generate", wrapper.GenerateQuestion)
 	router.GET(baseURL+"/users", wrapper.GetUser)
 	router.POST(baseURL+"/users", wrapper.PostUser)
 
@@ -943,15 +1196,16 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/9xVvW7bMBB+leLaUbCMZPNmo0UQdEhQIFOQgZHPCgOLpO+oFoKhodbQvkDH7g1adOkU",
-	"oG/DFylI/ViF1cCDW6CeROh++N33fSTXkOjMaIXKMkzWwMkdZiIsp4rfIfmVIW2QrMTwX3T/bWEQJsCW",
-	"pEqhjJrQ+bwXlMpiiuSjqxzZSq0GS3P+U2EZAeEql4RzmFxv9+hqep1bCHATtX307T0m1m/xEhciX9pX",
-	"RJreIButGHfHy5BZpDgAshzoecVDFO09TJO4i9YnSrXQoYe0Sx+7SCXJM1RIwmp6Nr08hwjeInHgFMaj",
-	"8ejEY9IGlTASJnA6Go9OIQIj7F0AFtf0hLXRbP3XAxeePY8YLjXbRvkaKrKd6XnhMxOtLKpQJIxZyiSU",
-	"xfdca1p7x69eEC5gAs/jrbnixllx07wsay5qGQKgk/HYf+bICUlTOwUuXvuR5rV0BwMxaIWA6PfdXfXB",
-	"VZ/c5sFVX1310b3/7jZfXPXgqp+u+uY2j6767KofbvPYDNQSHN8W095hSHGA6jNsmJ5tc71WJDK0QaTr",
-	"NUgPY5UjFRCBEpk3Qu8IbM1kKceoN/6O826G6T6wqNHR6HfF+6nHszZ1L/G6S+sfSictZryvht1dJIhE",
-	"cQyaesr5KSHDLf4Xj0fo/58TGT3xYHT8Hf65aKk7vseiLH8FAAD//+9dmJN9CQAA",
+	"H4sIAAAAAAAC/+xWsW7bMBD9leLaUYiMZvMWo0UQdEhSIFOQgZHPDgOLpHlUC8PQUGtof6Bj9wYtunQK",
+	"0L/hjxQkJVmOFcEt3AxCJxHk8fjuvccTl5DIVEmBwhAMl0DJDabMD48EvUftRkpLhdpw9POsnjcLhTAE",
+	"MpqLKeRRuXQybl2cZ0iGS9G5+MjejB5Jm0egcZ5xjWMYXq4B1Fs2UjdAVGDhKqpyyutbTIw77hVOWDYz",
+	"r7WW+i2SkoJwm4gUidgU21Ft5TxvlL+Z5++JeVB9e6VtBV5Qm7K7slzGbSd2gVxMpE/BzcytnU655sco",
+	"UDMj9bOjsxOI4B1q8hXD4GBwcOggSYWCKQ5DOPRTEShmbjyuOEjlx0qScV+Hm1XEwJkkU/o1QEUyIzle",
+	"uMhECoPCb2JKzXjit8W3FBgPjnejFxonMITn8fpKxOV9iMvkeR64CJbwgF4OBu4zRko0V0FHOH3jShoH",
+	"G+0NRKstPaLN023x0Raf7erOFt9s8cl++GFXX21xZ4tftvhuV/e2+GKLn3Z1XxZUERxfL44aV3iKLVQf",
+	"Y8n0aB3rtNIsReNFulwCdzDmGeoFRCBY6ozQuJtrMxmdYdQo/6HxrtrZ3rOmUW/ku6DdxKNRFbqTdnUz",
+	"fTrluMGUdpWw7kRMa7bog6RV+6YuLc/Xf7N/dkvqM/pEajwNPyTsYDcE/Kf4zyh2naLTs/7p8RS9wR/U",
+	"s84Qdbx/amL3//oJVPbx7ZPnvwMAAP//1DBvcwINAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  version: 0.0.2
+  version: 0.0.3
   title: OgiriGenerator API
 paths:
   /users:
@@ -12,7 +12,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
         default:
           description: デフォルトのエラーレスポンス
           content:
@@ -60,7 +62,7 @@ paths:
           in: query
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: OK
@@ -84,7 +86,7 @@ paths:
           in: query
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: OK
@@ -98,22 +100,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DefaultErrorResponse"
+  /questions:
+    get:
+      operationId: GetQuestion
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /questions/generate:
+    get:
+      operationId: GenerateQuestion
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
 components:
   schemas:
     User:
       type: object
       properties:
         userId:
-          type: integer
+          type: string
       required:
         - userId
     Answer:
       type: object
       properties:
         answerId:
-          type: integer
+          type: string
         userId:
-          type: integer
+          type: string
+        questionId:
+          type: string
         question:
           type: string
         answer:
@@ -121,8 +157,19 @@ components:
       required:
         - answerId
         - userId
+        - questionId
         - question
         - answer
+    Question:
+      type: object
+      properties:
+        questionId:
+          type: string
+        question:
+          type: string
+      required:
+        - questionId
+        - question
     DefaultErrorResponse:
       type: object
       properties:
