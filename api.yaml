@@ -117,7 +117,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/DefaultErrorResponse"
   /questions/generate:
-    get:
+    post:
       operationId: GenerateQuestion
       responses:
         "200":
@@ -145,31 +145,39 @@ components:
       type: object
       properties:
         answerId:
-          type: string
+          type: integer
         userId:
           type: string
         questionId:
-          type: string
+          type: integer
         question:
           type: string
         answer:
           type: string
+        timestamp:
+          type: string
+          format: date-time
       required:
         - answerId
         - userId
         - questionId
         - question
         - answer
+        - timestamp
     Question:
       type: object
       properties:
         questionId:
-          type: string
+          type: integer
         question:
           type: string
+        timestamp:
+          type: string
+          format: date-time
       required:
         - questionId
         - question
+        - timestamp
     DefaultErrorResponse:
       type: object
       properties:

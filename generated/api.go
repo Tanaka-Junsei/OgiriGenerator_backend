@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
@@ -23,11 +24,12 @@ import (
 
 // Answer defines model for Answer.
 type Answer struct {
-	Answer     string `json:"answer"`
-	AnswerId   string `json:"answerId"`
-	Question   string `json:"question"`
-	QuestionId string `json:"questionId"`
-	UserId     string `json:"userId"`
+	Answer     string    `json:"answer"`
+	AnswerId   int       `json:"answerId"`
+	Question   string    `json:"question"`
+	QuestionId int       `json:"questionId"`
+	Timestamp  time.Time `json:"timestamp"`
+	UserId     string    `json:"userId"`
 }
 
 // DefaultErrorResponse defines model for DefaultErrorResponse.
@@ -37,8 +39,9 @@ type DefaultErrorResponse struct {
 
 // Question defines model for Question.
 type Question struct {
-	Question   string `json:"question"`
-	QuestionId string `json:"questionId"`
+	Question   string    `json:"question"`
+	QuestionId int       `json:"questionId"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 // User defines model for User.
@@ -445,7 +448,7 @@ func NewGenerateQuestionRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1059,7 +1062,7 @@ type ServerInterface interface {
 	// (GET /questions)
 	GetQuestion(ctx echo.Context) error
 
-	// (GET /questions/generate)
+	// (POST /questions/generate)
 	GenerateQuestion(ctx echo.Context) error
 
 	// (GET /users)
@@ -1187,7 +1190,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/answers/byAnswerId", wrapper.GetAnswerByAnswerId)
 	router.GET(baseURL+"/answers/byUserId", wrapper.GetAnswersByUserId)
 	router.GET(baseURL+"/questions", wrapper.GetQuestion)
-	router.GET(baseURL+"/questions/generate", wrapper.GenerateQuestion)
+	router.POST(baseURL+"/questions/generate", wrapper.GenerateQuestion)
 	router.GET(baseURL+"/users", wrapper.GetUser)
 	router.POST(baseURL+"/users", wrapper.PostUser)
 
@@ -1196,16 +1199,17 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xWsW7bMBD9leLaUYiMZvMWo0UQdEhSIFOQgZHPDgOLpHlUC8PQUGtof6Bj9wYtunQK",
-	"0L/hjxQkJVmOFcEt3AxCJxHk8fjuvccTl5DIVEmBwhAMl0DJDabMD48EvUftRkpLhdpw9POsnjcLhTAE",
-	"MpqLKeRRuXQybl2cZ0iGS9G5+MjejB5Jm0egcZ5xjWMYXq4B1Fs2UjdAVGDhKqpyyutbTIw77hVOWDYz",
-	"r7WW+i2SkoJwm4gUidgU21Ft5TxvlL+Z5++JeVB9e6VtBV5Qm7K7slzGbSd2gVxMpE/BzcytnU655sco",
-	"UDMj9bOjsxOI4B1q8hXD4GBwcOggSYWCKQ5DOPRTEShmbjyuOEjlx0qScV+Hm1XEwJkkU/o1QEUyIzle",
-	"uMhECoPCb2JKzXjit8W3FBgPjnejFxonMITn8fpKxOV9iMvkeR64CJbwgF4OBu4zRko0V0FHOH3jShoH",
-	"G+0NRKstPaLN023x0Raf7erOFt9s8cl++GFXX21xZ4tftvhuV/e2+GKLn3Z1XxZUERxfL44aV3iKLVQf",
-	"Y8n0aB3rtNIsReNFulwCdzDmGeoFRCBY6ozQuJtrMxmdYdQo/6HxrtrZ3rOmUW/ku6DdxKNRFbqTdnUz",
-	"fTrluMGUdpWw7kRMa7bog6RV+6YuLc/Xf7N/dkvqM/pEajwNPyTsYDcE/Kf4zyh2naLTs/7p8RS9wR/U",
-	"s84Qdbx/amL3//oJVPbx7ZPnvwMAAP//1DBvcwINAAA=",
+	"H4sIAAAAAAAC/+xWvW7bMBB+leLaUY2MZtPmoEUQdEhSIFOQgZHOCoOIpMlTC8PQUGtoX6Bj9wYtunQK",
+	"0LfhixSkfizbsuECrgejkwgdefz4fd8dOYVYZkoKFGQgmoKJ7zBjfjgU5gNqN1JaKtTE0f9n7X+aKIQI",
+	"DGkuUiiCOnSWdIJcEKaoXXScoyEuRe/SJrhuMfEMDbFMufBI6owRRJAwwpcuBMFqytwsYWlCRQAaxznX",
+	"mEB0PUfdLlmA0wHenBC6eG7areXtPcbktn6NI5Y/0ButpX6HRklhcJXJDI1hKfYjXMl52aFvMc9+iV1i",
+	"bx1Tmwm6Mn3W2laxet5qYjeRi5H0KTg9uNh5yjU/RYGakdTPhhdnEMB71MYzBoOjwdGxgyQVCqY4RHDs",
+	"fwWgGN15XGElux8rach9HW7WEAsX0tCw8YaDioZOZDJxM2MpCIVfxJR64LFfFt6bSrGq5NzohcYRRPA8",
+	"nNdkWBdkWCcvioqLylIe0KvBwH0SNLHmqvIBnL91R0oqG+4MRK+tPaLF3W35yZZf7OzRlt9t+dl+/Gln",
+	"32z5aMvftvxhZ0+2/GrLX3b2VB+oITi8nQw7PSTFHqpPsWb6ZD7XaaVZhuRFup4CdzDGOeoJBCBY5ozQ",
+	"qfO5mUjnGHSOv2y8m362d6xpcDDyXZntxDMnzdSttGsb8/6U44SZ2VbCthMxrdnkECRtWrnZpOXlvN//",
+	"sypp9zgkUsO0upBw/ZVSX1n4n+O/49i1io2m9W+PfTQHv9GBtYZgwwOoJXb3z5+KykN8/BTFnwAAAP//",
+	"6EpRMoQNAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

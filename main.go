@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	oapi "github.com/Tanaka-Junsei/OgiriGenerator_backend/generated"
 	oapiMiddleware "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -47,13 +48,18 @@ func (a apiController) PostAnswer(ctx echo.Context) error {
 
 // OpenAPI で定義された (GET /answers/byAnswerId) の実装
 func (a apiController) GetAnswerByAnswerId(ctx echo.Context, params oapi.GetAnswerByAnswerIdParams) error {
+	// stringをintに変換
+	answerId, err := strconv.Atoi(params.AnswerId)
+	if err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{"error": "invalid answerId"})
+	}
 	// 仮のデータを返す
 	return ctx.JSON(http.StatusOK, &oapi.Answer{
-		AnswerId:   params.AnswerId,
+		AnswerId:   answerId,
 		Answer:     "This is a sample answer",
 		Question:   "What is the question?",
 		UserId:     "1",
-		QuestionId: "1",
+		QuestionId: 1,
 	})
 }
 
@@ -62,18 +68,18 @@ func (a apiController) GetAnswersByUserId(ctx echo.Context, params oapi.GetAnswe
 	// 仮のデータを返す
 	answers := []oapi.Answer{
 		{
-			AnswerId:   "1",
+			AnswerId:   1,
 			Answer:     "Answer 1",
 			Question:   "Question 1",
 			UserId:     params.UserId,
-			QuestionId: "1",
+			QuestionId: 1,
 		},
 		{
-			AnswerId:   "2",
+			AnswerId:   2,
 			Answer:     "Answer 2",
 			Question:   "Question 2",
 			UserId:     params.UserId,
-			QuestionId: "2",
+			QuestionId: 2,
 		},
 	}
 	return ctx.JSON(http.StatusOK, answers)
@@ -83,7 +89,7 @@ func (a apiController) GetAnswersByUserId(ctx echo.Context, params oapi.GetAnswe
 func (a apiController) GenerateQuestion(ctx echo.Context) error {
 	// 仮のデータを返す
 	return ctx.JSON(http.StatusOK, &oapi.Question{
-		QuestionId: "1",
+		QuestionId: 1,
 		Question:   "This is a generated question",
 	})
 }
@@ -92,30 +98,23 @@ func (a apiController) GenerateQuestion(ctx echo.Context) error {
 func (a apiController) GetQuestion(ctx echo.Context) error {
 	// 仮のデータを返す
 	return ctx.JSON(http.StatusOK, &oapi.Question{
-		QuestionId: "1",
+		QuestionId: 1,
 		Question:   "This is a sample question",
 	})
 }
 
 func main() {
-	// Echo のインスタンス作成
 	e := echo.New()
-
-	// OpenAPI 仕様に沿ったリクエストかバリデーションをするミドルウェアを設定
 	swagger, err := oapi.GetSwagger()
 	if err != nil {
 		panic(err)
 	}
 	e.Use(oapiMiddleware.OapiRequestValidator(swagger))
-	// ロガーのミドルウェアを設定
 	e.Use(middleware.Logger())
-	// APIがエラーで落ちてもリカバーするミドルウェアを設定
 	e.Use(middleware.Recover())
 
-	// OpenAPI の仕様を満たす構造体をハンドラーとして登録する
 	api := apiController{}
 	oapi.RegisterHandlers(e, api)
 
-	// 8080ポートで Echo サーバ起動
 	e.Logger.Fatal(e.Start(":8080"))
 }
