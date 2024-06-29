@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -87,11 +90,28 @@ func (a apiController) GetAnswersByUserId(ctx echo.Context, params oapi.GetAnswe
 
 // OpenAPI で定義された (POST /questions/generate) の実装
 func (a apiController) GenerateQuestion(ctx echo.Context) error {
-	// 仮のデータを返す
-	return ctx.JSON(http.StatusOK, &oapi.Question{
-		QuestionId: 1,
-		Question:   "This is a generated question",
-	})
+	// PythonのAPIにリクエストを送信
+	resp, err := http.Post("http://127.0.0.1:8000/add-data", "application/json", nil)
+	if err != nil {
+		log.Print(err)
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to contact Python API"})
+	}
+	defer resp.Body.Close()
+
+	// レスポンスを読み込む
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to read response from Python API"})
+	}
+
+	// レスポンスのデータを解析
+	var generatedQuestion oapi.Question
+	if err := json.Unmarshal(body, &generatedQuestion); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to parse response from Python API"})
+	}
+
+	// クライアントに返す
+	return ctx.JSON(http.StatusOK, generatedQuestion)
 }
 
 // OpenAPI で定義された (GET /questions) の実装

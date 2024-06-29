@@ -1,0 +1,18 @@
+REPOSITORY_NAME=ogiri-generator-backend
+LOCATION_NAME=us-central1
+gcloud artifacts repositories create ${REPOSITORY_NAME} \
+--repository-format=docker --location=${LOCATION_NAME}
+
+
+
+REPOSITORY_NAME=ogiri-generator-backend
+LOCATION_NAME=us-central1
+GCP_PROJECT_NAME=ogiri-generator-dev
+
+
+# --build-arg _STAGE=devは筆者の場合.envを使用するためなので必要に応じて消してください。
+# 引数がいらない場合: docker build  --tag ${LOCATION_NAME}-docker.pkg.dev/${GCP_PROJECT_NAME}/${REPOSITORY_NAME}/images .
+docker build --build-arg _STAGE=dev --tag ${LOCATION_NAME}-docker.pkg.dev/${GCP_PROJECT_NAME}/${REPOSITORY_NAME}/images .
+
+
+docker push ${LOCATION_NAME}-docker.pkg.dev/${GCP_PROJECT_NAME}/${REPOSITORY_NAME}/images
