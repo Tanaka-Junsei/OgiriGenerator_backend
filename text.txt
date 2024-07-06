@@ -16,3 +16,19 @@ docker build --build-arg _STAGE=dev --tag ${LOCATION_NAME}-docker.pkg.dev/${GCP_
 
 
 docker push ${LOCATION_NAME}-docker.pkg.dev/${GCP_PROJECT_NAME}/${REPOSITORY_NAME}/images
+
+
+
+
+get users
+post users
+post question ユーザーがお題をtrueの方のテーブルに入れる
+post answer 回答を送る
+post like いいねを送る
+get question/byquestionid questionidごとにお題の配列を得る
+get question/byUserid useridごとにお題の配列を得る
+get answers/byuserid useridごとに回答の配列を得る
+get answers/byquestionid questionidごとに回答の配列を得る
+get answers/bylike 直近nの期間でのいいねの数が多い順番で上位30件の回答の配列を得る
+get likes/byuserid useridごとにいいねした回答の一覧を取得
+

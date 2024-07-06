@@ -25,9 +25,11 @@ import (
 // Answer defines model for Answer.
 type Answer struct {
 	Answer     string    `json:"answer"`
-	AnswerId   int       `json:"answerId"`
+	AnswerId   string    `json:"answerId"`
+	IsPublic   bool      `json:"isPublic"`
+	Likes      int       `json:"likes"`
 	Question   string    `json:"question"`
-	QuestionId int       `json:"questionId"`
+	QuestionId string    `json:"questionId"`
 	Timestamp  time.Time `json:"timestamp"`
 	UserId     string    `json:"userId"`
 }
@@ -37,21 +39,39 @@ type DefaultErrorResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// Like defines model for Like.
+type Like struct {
+	AnswerId   string    `json:"answerId"`
+	LikeId     string    `json:"likeId"`
+	QuestionId string    `json:"questionId"`
+	Timestamp  time.Time `json:"timestamp"`
+	UserId     string    `json:"userId"`
+}
+
 // Question defines model for Question.
 type Question struct {
-	Question   string    `json:"question"`
-	QuestionId int       `json:"questionId"`
-	Timestamp  time.Time `json:"timestamp"`
+	CreatedByAI bool      `json:"createdByAI"`
+	Question    string    `json:"question"`
+	QuestionId  string    `json:"questionId"`
+	Timestamp   time.Time `json:"timestamp"`
+	UserId      string    `json:"userId"`
 }
 
 // User defines model for User.
 type User struct {
+	Name   string `json:"name"`
 	UserId string `json:"userId"`
 }
 
-// GetAnswerByAnswerIdParams defines parameters for GetAnswerByAnswerId.
-type GetAnswerByAnswerIdParams struct {
-	AnswerId string `form:"answerId" json:"answerId"`
+// GetAnswersByLikeParams defines parameters for GetAnswersByLike.
+type GetAnswersByLikeParams struct {
+	Period string `form:"period" json:"period"`
+	TopN   int    `form:"topN" json:"topN"`
+}
+
+// GetAnswersByQuestionIdParams defines parameters for GetAnswersByQuestionId.
+type GetAnswersByQuestionIdParams struct {
+	QuestionId string `form:"questionId" json:"questionId"`
 }
 
 // GetAnswersByUserIdParams defines parameters for GetAnswersByUserId.
@@ -59,8 +79,29 @@ type GetAnswersByUserIdParams struct {
 	UserId string `form:"userId" json:"userId"`
 }
 
+// GetLikesByUserIdParams defines parameters for GetLikesByUserId.
+type GetLikesByUserIdParams struct {
+	UserId string `form:"userId" json:"userId"`
+}
+
+// GetQuestionsByQuestionIdParams defines parameters for GetQuestionsByQuestionId.
+type GetQuestionsByQuestionIdParams struct {
+	QuestionId string `form:"questionId" json:"questionId"`
+}
+
+// GetQuestionsByUserIdParams defines parameters for GetQuestionsByUserId.
+type GetQuestionsByUserIdParams struct {
+	UserId string `form:"userId" json:"userId"`
+}
+
 // PostAnswerJSONRequestBody defines body for PostAnswer for application/json ContentType.
 type PostAnswerJSONRequestBody = Answer
+
+// PostLikeJSONRequestBody defines body for PostLike for application/json ContentType.
+type PostLikeJSONRequestBody = Like
+
+// PostQuestionJSONRequestBody defines body for PostQuestion for application/json ContentType.
+type PostQuestionJSONRequestBody = Question
 
 // PostUserJSONRequestBody defines body for PostUser for application/json ContentType.
 type PostUserJSONRequestBody = User
@@ -143,17 +184,33 @@ type ClientInterface interface {
 
 	PostAnswer(ctx context.Context, body PostAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetAnswerByAnswerId request
-	GetAnswerByAnswerId(ctx context.Context, params *GetAnswerByAnswerIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetAnswersByLike request
+	GetAnswersByLike(ctx context.Context, params *GetAnswersByLikeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAnswersByQuestionId request
+	GetAnswersByQuestionId(ctx context.Context, params *GetAnswersByQuestionIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAnswersByUserId request
 	GetAnswersByUserId(ctx context.Context, params *GetAnswersByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetQuestion request
-	GetQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostLikeWithBody request with any body
+	PostLikeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GenerateQuestion request
-	GenerateQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PostLike(ctx context.Context, body PostLikeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLikesByUserId request
+	GetLikesByUserId(ctx context.Context, params *GetLikesByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostQuestionWithBody request with any body
+	PostQuestionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostQuestion(ctx context.Context, body PostQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetQuestionsByQuestionId request
+	GetQuestionsByQuestionId(ctx context.Context, params *GetQuestionsByQuestionIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetQuestionsByUserId request
+	GetQuestionsByUserId(ctx context.Context, params *GetQuestionsByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUser request
 	GetUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -188,8 +245,20 @@ func (c *Client) PostAnswer(ctx context.Context, body PostAnswerJSONRequestBody,
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAnswerByAnswerId(ctx context.Context, params *GetAnswerByAnswerIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAnswerByAnswerIdRequest(c.Server, params)
+func (c *Client) GetAnswersByLike(ctx context.Context, params *GetAnswersByLikeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAnswersByLikeRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAnswersByQuestionId(ctx context.Context, params *GetAnswersByQuestionIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAnswersByQuestionIdRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +281,8 @@ func (c *Client) GetAnswersByUserId(ctx context.Context, params *GetAnswersByUse
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetQuestionRequest(c.Server)
+func (c *Client) PostLikeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostLikeRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +293,68 @@ func (c *Client) GetQuestion(ctx context.Context, reqEditors ...RequestEditorFn)
 	return c.Client.Do(req)
 }
 
-func (c *Client) GenerateQuestion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGenerateQuestionRequest(c.Server)
+func (c *Client) PostLike(ctx context.Context, body PostLikeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostLikeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLikesByUserId(ctx context.Context, params *GetLikesByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLikesByUserIdRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostQuestionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostQuestionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostQuestion(ctx context.Context, body PostQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostQuestionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetQuestionsByQuestionId(ctx context.Context, params *GetQuestionsByQuestionIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetQuestionsByQuestionIdRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetQuestionsByUserId(ctx context.Context, params *GetQuestionsByUserIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetQuestionsByUserIdRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -312,8 +441,8 @@ func NewPostAnswerRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
-// NewGetAnswerByAnswerIdRequest generates requests for GetAnswerByAnswerId
-func NewGetAnswerByAnswerIdRequest(server string, params *GetAnswerByAnswerIdParams) (*http.Request, error) {
+// NewGetAnswersByLikeRequest generates requests for GetAnswersByLike
+func NewGetAnswersByLikeRequest(server string, params *GetAnswersByLikeParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -321,7 +450,7 @@ func NewGetAnswerByAnswerIdRequest(server string, params *GetAnswerByAnswerIdPar
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/answers/byAnswerId")
+	operationPath := fmt.Sprintf("/answers/byLike")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -334,7 +463,64 @@ func NewGetAnswerByAnswerIdRequest(server string, params *GetAnswerByAnswerIdPar
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "answerId", runtime.ParamLocationQuery, params.AnswerId); err != nil {
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "period", runtime.ParamLocationQuery, params.Period); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "topN", runtime.ParamLocationQuery, params.TopN); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAnswersByQuestionIdRequest generates requests for GetAnswersByQuestionId
+func NewGetAnswersByQuestionIdRequest(server string, params *GetAnswersByQuestionIdParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/answers/byQuestionId")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "questionId", runtime.ParamLocationQuery, params.QuestionId); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -402,8 +588,104 @@ func NewGetAnswersByUserIdRequest(server string, params *GetAnswersByUserIdParam
 	return req, nil
 }
 
-// NewGetQuestionRequest generates requests for GetQuestion
-func NewGetQuestionRequest(server string) (*http.Request, error) {
+// NewPostLikeRequest calls the generic PostLike builder with application/json body
+func NewPostLikeRequest(server string, body PostLikeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostLikeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostLikeRequestWithBody generates requests for PostLike with any type of body
+func NewPostLikeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/likes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetLikesByUserIdRequest generates requests for GetLikesByUserId
+func NewGetLikesByUserIdRequest(server string, params *GetLikesByUserIdParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/likes/byUserId")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "userId", runtime.ParamLocationQuery, params.UserId); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostQuestionRequest calls the generic PostQuestion builder with application/json body
+func NewPostQuestionRequest(server string, body PostQuestionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostQuestionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostQuestionRequestWithBody generates requests for PostQuestion with any type of body
+func NewPostQuestionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -421,16 +703,18 @@ func NewGetQuestionRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
+	req.Header.Add("Content-Type", contentType)
+
 	return req, nil
 }
 
-// NewGenerateQuestionRequest generates requests for GenerateQuestion
-func NewGenerateQuestionRequest(server string) (*http.Request, error) {
+// NewGetQuestionsByQuestionIdRequest generates requests for GetQuestionsByQuestionId
+func NewGetQuestionsByQuestionIdRequest(server string, params *GetQuestionsByQuestionIdParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -438,7 +722,7 @@ func NewGenerateQuestionRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/questions/generate")
+	operationPath := fmt.Sprintf("/questions/byQuestionId")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -448,7 +732,70 @@ func NewGenerateQuestionRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "questionId", runtime.ParamLocationQuery, params.QuestionId); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetQuestionsByUserIdRequest generates requests for GetQuestionsByUserId
+func NewGetQuestionsByUserIdRequest(server string, params *GetQuestionsByUserIdParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions/byUserId")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "userId", runtime.ParamLocationQuery, params.UserId); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -571,17 +918,33 @@ type ClientWithResponsesInterface interface {
 
 	PostAnswerWithResponse(ctx context.Context, body PostAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostAnswerResponse, error)
 
-	// GetAnswerByAnswerIdWithResponse request
-	GetAnswerByAnswerIdWithResponse(ctx context.Context, params *GetAnswerByAnswerIdParams, reqEditors ...RequestEditorFn) (*GetAnswerByAnswerIdResponse, error)
+	// GetAnswersByLikeWithResponse request
+	GetAnswersByLikeWithResponse(ctx context.Context, params *GetAnswersByLikeParams, reqEditors ...RequestEditorFn) (*GetAnswersByLikeResponse, error)
+
+	// GetAnswersByQuestionIdWithResponse request
+	GetAnswersByQuestionIdWithResponse(ctx context.Context, params *GetAnswersByQuestionIdParams, reqEditors ...RequestEditorFn) (*GetAnswersByQuestionIdResponse, error)
 
 	// GetAnswersByUserIdWithResponse request
 	GetAnswersByUserIdWithResponse(ctx context.Context, params *GetAnswersByUserIdParams, reqEditors ...RequestEditorFn) (*GetAnswersByUserIdResponse, error)
 
-	// GetQuestionWithResponse request
-	GetQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetQuestionResponse, error)
+	// PostLikeWithBodyWithResponse request with any body
+	PostLikeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLikeResponse, error)
 
-	// GenerateQuestionWithResponse request
-	GenerateQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GenerateQuestionResponse, error)
+	PostLikeWithResponse(ctx context.Context, body PostLikeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostLikeResponse, error)
+
+	// GetLikesByUserIdWithResponse request
+	GetLikesByUserIdWithResponse(ctx context.Context, params *GetLikesByUserIdParams, reqEditors ...RequestEditorFn) (*GetLikesByUserIdResponse, error)
+
+	// PostQuestionWithBodyWithResponse request with any body
+	PostQuestionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostQuestionResponse, error)
+
+	PostQuestionWithResponse(ctx context.Context, body PostQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*PostQuestionResponse, error)
+
+	// GetQuestionsByQuestionIdWithResponse request
+	GetQuestionsByQuestionIdWithResponse(ctx context.Context, params *GetQuestionsByQuestionIdParams, reqEditors ...RequestEditorFn) (*GetQuestionsByQuestionIdResponse, error)
+
+	// GetQuestionsByUserIdWithResponse request
+	GetQuestionsByUserIdWithResponse(ctx context.Context, params *GetQuestionsByUserIdParams, reqEditors ...RequestEditorFn) (*GetQuestionsByUserIdResponse, error)
 
 	// GetUserWithResponse request
 	GetUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
@@ -614,15 +977,15 @@ func (r PostAnswerResponse) StatusCode() int {
 	return 0
 }
 
-type GetAnswerByAnswerIdResponse struct {
+type GetAnswersByLikeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Answer
+	JSON200      *[]Answer
 	JSONDefault  *DefaultErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetAnswerByAnswerIdResponse) Status() string {
+func (r GetAnswersByLikeResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -630,7 +993,30 @@ func (r GetAnswerByAnswerIdResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetAnswerByAnswerIdResponse) StatusCode() int {
+func (r GetAnswersByLikeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetAnswersByQuestionIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Answer
+	JSONDefault  *DefaultErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAnswersByQuestionIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAnswersByQuestionIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -660,15 +1046,14 @@ func (r GetAnswersByUserIdResponse) StatusCode() int {
 	return 0
 }
 
-type GetQuestionResponse struct {
+type PostLikeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Question
 	JSONDefault  *DefaultErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetQuestionResponse) Status() string {
+func (r PostLikeResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -676,22 +1061,22 @@ func (r GetQuestionResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetQuestionResponse) StatusCode() int {
+func (r PostLikeResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GenerateQuestionResponse struct {
+type GetLikesByUserIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Question
+	JSON200      *[]Like
 	JSONDefault  *DefaultErrorResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GenerateQuestionResponse) Status() string {
+func (r GetLikesByUserIdResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -699,7 +1084,75 @@ func (r GenerateQuestionResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GenerateQuestionResponse) StatusCode() int {
+func (r GetLikesByUserIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostQuestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSONDefault  *DefaultErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostQuestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetQuestionsByQuestionIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Question
+	JSONDefault  *DefaultErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetQuestionsByQuestionIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetQuestionsByQuestionIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetQuestionsByUserIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Question
+	JSONDefault  *DefaultErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetQuestionsByUserIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetQuestionsByUserIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -768,13 +1221,22 @@ func (c *ClientWithResponses) PostAnswerWithResponse(ctx context.Context, body P
 	return ParsePostAnswerResponse(rsp)
 }
 
-// GetAnswerByAnswerIdWithResponse request returning *GetAnswerByAnswerIdResponse
-func (c *ClientWithResponses) GetAnswerByAnswerIdWithResponse(ctx context.Context, params *GetAnswerByAnswerIdParams, reqEditors ...RequestEditorFn) (*GetAnswerByAnswerIdResponse, error) {
-	rsp, err := c.GetAnswerByAnswerId(ctx, params, reqEditors...)
+// GetAnswersByLikeWithResponse request returning *GetAnswersByLikeResponse
+func (c *ClientWithResponses) GetAnswersByLikeWithResponse(ctx context.Context, params *GetAnswersByLikeParams, reqEditors ...RequestEditorFn) (*GetAnswersByLikeResponse, error) {
+	rsp, err := c.GetAnswersByLike(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetAnswerByAnswerIdResponse(rsp)
+	return ParseGetAnswersByLikeResponse(rsp)
+}
+
+// GetAnswersByQuestionIdWithResponse request returning *GetAnswersByQuestionIdResponse
+func (c *ClientWithResponses) GetAnswersByQuestionIdWithResponse(ctx context.Context, params *GetAnswersByQuestionIdParams, reqEditors ...RequestEditorFn) (*GetAnswersByQuestionIdResponse, error) {
+	rsp, err := c.GetAnswersByQuestionId(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAnswersByQuestionIdResponse(rsp)
 }
 
 // GetAnswersByUserIdWithResponse request returning *GetAnswersByUserIdResponse
@@ -786,22 +1248,65 @@ func (c *ClientWithResponses) GetAnswersByUserIdWithResponse(ctx context.Context
 	return ParseGetAnswersByUserIdResponse(rsp)
 }
 
-// GetQuestionWithResponse request returning *GetQuestionResponse
-func (c *ClientWithResponses) GetQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetQuestionResponse, error) {
-	rsp, err := c.GetQuestion(ctx, reqEditors...)
+// PostLikeWithBodyWithResponse request with arbitrary body returning *PostLikeResponse
+func (c *ClientWithResponses) PostLikeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostLikeResponse, error) {
+	rsp, err := c.PostLikeWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetQuestionResponse(rsp)
+	return ParsePostLikeResponse(rsp)
 }
 
-// GenerateQuestionWithResponse request returning *GenerateQuestionResponse
-func (c *ClientWithResponses) GenerateQuestionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GenerateQuestionResponse, error) {
-	rsp, err := c.GenerateQuestion(ctx, reqEditors...)
+func (c *ClientWithResponses) PostLikeWithResponse(ctx context.Context, body PostLikeJSONRequestBody, reqEditors ...RequestEditorFn) (*PostLikeResponse, error) {
+	rsp, err := c.PostLike(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGenerateQuestionResponse(rsp)
+	return ParsePostLikeResponse(rsp)
+}
+
+// GetLikesByUserIdWithResponse request returning *GetLikesByUserIdResponse
+func (c *ClientWithResponses) GetLikesByUserIdWithResponse(ctx context.Context, params *GetLikesByUserIdParams, reqEditors ...RequestEditorFn) (*GetLikesByUserIdResponse, error) {
+	rsp, err := c.GetLikesByUserId(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLikesByUserIdResponse(rsp)
+}
+
+// PostQuestionWithBodyWithResponse request with arbitrary body returning *PostQuestionResponse
+func (c *ClientWithResponses) PostQuestionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostQuestionResponse, error) {
+	rsp, err := c.PostQuestionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostQuestionResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostQuestionWithResponse(ctx context.Context, body PostQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*PostQuestionResponse, error) {
+	rsp, err := c.PostQuestion(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostQuestionResponse(rsp)
+}
+
+// GetQuestionsByQuestionIdWithResponse request returning *GetQuestionsByQuestionIdResponse
+func (c *ClientWithResponses) GetQuestionsByQuestionIdWithResponse(ctx context.Context, params *GetQuestionsByQuestionIdParams, reqEditors ...RequestEditorFn) (*GetQuestionsByQuestionIdResponse, error) {
+	rsp, err := c.GetQuestionsByQuestionId(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetQuestionsByQuestionIdResponse(rsp)
+}
+
+// GetQuestionsByUserIdWithResponse request returning *GetQuestionsByUserIdResponse
+func (c *ClientWithResponses) GetQuestionsByUserIdWithResponse(ctx context.Context, params *GetQuestionsByUserIdParams, reqEditors ...RequestEditorFn) (*GetQuestionsByUserIdResponse, error) {
+	rsp, err := c.GetQuestionsByUserId(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetQuestionsByUserIdResponse(rsp)
 }
 
 // GetUserWithResponse request returning *GetUserResponse
@@ -856,22 +1361,55 @@ func ParsePostAnswerResponse(rsp *http.Response) (*PostAnswerResponse, error) {
 	return response, nil
 }
 
-// ParseGetAnswerByAnswerIdResponse parses an HTTP response from a GetAnswerByAnswerIdWithResponse call
-func ParseGetAnswerByAnswerIdResponse(rsp *http.Response) (*GetAnswerByAnswerIdResponse, error) {
+// ParseGetAnswersByLikeResponse parses an HTTP response from a GetAnswersByLikeWithResponse call
+func ParseGetAnswersByLikeResponse(rsp *http.Response) (*GetAnswersByLikeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetAnswerByAnswerIdResponse{
+	response := &GetAnswersByLikeResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Answer
+		var dest []Answer
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DefaultErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAnswersByQuestionIdResponse parses an HTTP response from a GetAnswersByQuestionIdWithResponse call
+func ParseGetAnswersByQuestionIdResponse(rsp *http.Response) (*GetAnswersByQuestionIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAnswersByQuestionIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Answer
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -922,22 +1460,48 @@ func ParseGetAnswersByUserIdResponse(rsp *http.Response) (*GetAnswersByUserIdRes
 	return response, nil
 }
 
-// ParseGetQuestionResponse parses an HTTP response from a GetQuestionWithResponse call
-func ParseGetQuestionResponse(rsp *http.Response) (*GetQuestionResponse, error) {
+// ParsePostLikeResponse parses an HTTP response from a PostLikeWithResponse call
+func ParsePostLikeResponse(rsp *http.Response) (*PostLikeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetQuestionResponse{
+	response := &PostLikeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DefaultErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLikesByUserIdResponse parses an HTTP response from a GetLikesByUserIdWithResponse call
+func ParseGetLikesByUserIdResponse(rsp *http.Response) (*GetLikesByUserIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLikesByUserIdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Question
+		var dest []Like
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -955,22 +1519,81 @@ func ParseGetQuestionResponse(rsp *http.Response) (*GetQuestionResponse, error) 
 	return response, nil
 }
 
-// ParseGenerateQuestionResponse parses an HTTP response from a GenerateQuestionWithResponse call
-func ParseGenerateQuestionResponse(rsp *http.Response) (*GenerateQuestionResponse, error) {
+// ParsePostQuestionResponse parses an HTTP response from a PostQuestionWithResponse call
+func ParsePostQuestionResponse(rsp *http.Response) (*PostQuestionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GenerateQuestionResponse{
+	response := &PostQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DefaultErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetQuestionsByQuestionIdResponse parses an HTTP response from a GetQuestionsByQuestionIdWithResponse call
+func ParseGetQuestionsByQuestionIdResponse(rsp *http.Response) (*GetQuestionsByQuestionIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetQuestionsByQuestionIdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Question
+		var dest []Question
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest DefaultErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetQuestionsByUserIdResponse parses an HTTP response from a GetQuestionsByUserIdWithResponse call
+func ParseGetQuestionsByUserIdResponse(rsp *http.Response) (*GetQuestionsByUserIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetQuestionsByUserIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Question
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1053,17 +1676,29 @@ type ServerInterface interface {
 	// (POST /answers)
 	PostAnswer(ctx echo.Context) error
 
-	// (GET /answers/byAnswerId)
-	GetAnswerByAnswerId(ctx echo.Context, params GetAnswerByAnswerIdParams) error
+	// (GET /answers/byLike)
+	GetAnswersByLike(ctx echo.Context, params GetAnswersByLikeParams) error
+
+	// (GET /answers/byQuestionId)
+	GetAnswersByQuestionId(ctx echo.Context, params GetAnswersByQuestionIdParams) error
 
 	// (GET /answers/byUserId)
 	GetAnswersByUserId(ctx echo.Context, params GetAnswersByUserIdParams) error
 
-	// (GET /questions)
-	GetQuestion(ctx echo.Context) error
+	// (POST /likes)
+	PostLike(ctx echo.Context) error
 
-	// (POST /questions/generate)
-	GenerateQuestion(ctx echo.Context) error
+	// (GET /likes/byUserId)
+	GetLikesByUserId(ctx echo.Context, params GetLikesByUserIdParams) error
+
+	// (POST /questions)
+	PostQuestion(ctx echo.Context) error
+
+	// (GET /questions/byQuestionId)
+	GetQuestionsByQuestionId(ctx echo.Context, params GetQuestionsByQuestionIdParams) error
+
+	// (GET /questions/byUserId)
+	GetQuestionsByUserId(ctx echo.Context, params GetQuestionsByUserIdParams) error
 
 	// (GET /users)
 	GetUser(ctx echo.Context) error
@@ -1086,21 +1721,46 @@ func (w *ServerInterfaceWrapper) PostAnswer(ctx echo.Context) error {
 	return err
 }
 
-// GetAnswerByAnswerId converts echo context to params.
-func (w *ServerInterfaceWrapper) GetAnswerByAnswerId(ctx echo.Context) error {
+// GetAnswersByLike converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnswersByLike(ctx echo.Context) error {
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetAnswerByAnswerIdParams
-	// ------------- Required query parameter "answerId" -------------
+	var params GetAnswersByLikeParams
+	// ------------- Required query parameter "period" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "answerId", ctx.QueryParams(), &params.AnswerId)
+	err = runtime.BindQueryParameter("form", true, true, "period", ctx.QueryParams(), &params.Period)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter answerId: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter period: %s", err))
+	}
+
+	// ------------- Required query parameter "topN" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "topN", ctx.QueryParams(), &params.TopN)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter topN: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetAnswerByAnswerId(ctx, params)
+	err = w.Handler.GetAnswersByLike(ctx, params)
+	return err
+}
+
+// GetAnswersByQuestionId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetAnswersByQuestionId(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnswersByQuestionIdParams
+	// ------------- Required query parameter "questionId" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "questionId", ctx.QueryParams(), &params.QuestionId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter questionId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetAnswersByQuestionId(ctx, params)
 	return err
 }
 
@@ -1122,21 +1782,75 @@ func (w *ServerInterfaceWrapper) GetAnswersByUserId(ctx echo.Context) error {
 	return err
 }
 
-// GetQuestion converts echo context to params.
-func (w *ServerInterfaceWrapper) GetQuestion(ctx echo.Context) error {
+// PostLike converts echo context to params.
+func (w *ServerInterfaceWrapper) PostLike(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetQuestion(ctx)
+	err = w.Handler.PostLike(ctx)
 	return err
 }
 
-// GenerateQuestion converts echo context to params.
-func (w *ServerInterfaceWrapper) GenerateQuestion(ctx echo.Context) error {
+// GetLikesByUserId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLikesByUserId(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetLikesByUserIdParams
+	// ------------- Required query parameter "userId" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "userId", ctx.QueryParams(), &params.UserId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLikesByUserId(ctx, params)
+	return err
+}
+
+// PostQuestion converts echo context to params.
+func (w *ServerInterfaceWrapper) PostQuestion(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GenerateQuestion(ctx)
+	err = w.Handler.PostQuestion(ctx)
+	return err
+}
+
+// GetQuestionsByQuestionId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetQuestionsByQuestionId(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetQuestionsByQuestionIdParams
+	// ------------- Required query parameter "questionId" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "questionId", ctx.QueryParams(), &params.QuestionId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter questionId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetQuestionsByQuestionId(ctx, params)
+	return err
+}
+
+// GetQuestionsByUserId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetQuestionsByUserId(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetQuestionsByUserIdParams
+	// ------------- Required query parameter "userId" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "userId", ctx.QueryParams(), &params.UserId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter userId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetQuestionsByUserId(ctx, params)
 	return err
 }
 
@@ -1187,10 +1901,14 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/answers", wrapper.PostAnswer)
-	router.GET(baseURL+"/answers/byAnswerId", wrapper.GetAnswerByAnswerId)
+	router.GET(baseURL+"/answers/byLike", wrapper.GetAnswersByLike)
+	router.GET(baseURL+"/answers/byQuestionId", wrapper.GetAnswersByQuestionId)
 	router.GET(baseURL+"/answers/byUserId", wrapper.GetAnswersByUserId)
-	router.GET(baseURL+"/questions", wrapper.GetQuestion)
-	router.POST(baseURL+"/questions/generate", wrapper.GenerateQuestion)
+	router.POST(baseURL+"/likes", wrapper.PostLike)
+	router.GET(baseURL+"/likes/byUserId", wrapper.GetLikesByUserId)
+	router.POST(baseURL+"/questions", wrapper.PostQuestion)
+	router.GET(baseURL+"/questions/byQuestionId", wrapper.GetQuestionsByQuestionId)
+	router.GET(baseURL+"/questions/byUserId", wrapper.GetQuestionsByUserId)
 	router.GET(baseURL+"/users", wrapper.GetUser)
 	router.POST(baseURL+"/users", wrapper.PostUser)
 
@@ -1199,17 +1917,19 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xWvW7bMBB+leLaUY2MZtPmoEUQdEhSIFOQgZHOCoOIpMlTC8PQUGtoX6Bj9wYtunQK",
-	"0LfhixSkfizbsuECrgejkwgdefz4fd8dOYVYZkoKFGQgmoKJ7zBjfjgU5gNqN1JaKtTE0f9n7X+aKIQI",
-	"DGkuUiiCOnSWdIJcEKaoXXScoyEuRe/SJrhuMfEMDbFMufBI6owRRJAwwpcuBMFqytwsYWlCRQAaxznX",
-	"mEB0PUfdLlmA0wHenBC6eG7areXtPcbktn6NI5Y/0ButpX6HRklhcJXJDI1hKfYjXMl52aFvMc9+iV1i",
-	"bx1Tmwm6Mn3W2laxet5qYjeRi5H0KTg9uNh5yjU/RYGakdTPhhdnEMB71MYzBoOjwdGxgyQVCqY4RHDs",
-	"fwWgGN15XGElux8rach9HW7WEAsX0tCw8YaDioZOZDJxM2MpCIVfxJR64LFfFt6bSrGq5NzohcYRRPA8",
-	"nNdkWBdkWCcvioqLylIe0KvBwH0SNLHmqvIBnL91R0oqG+4MRK+tPaLF3W35yZZf7OzRlt9t+dl+/Gln",
-	"32z5aMvftvxhZ0+2/GrLX3b2VB+oITi8nQw7PSTFHqpPsWb6ZD7XaaVZhuRFup4CdzDGOeoJBCBY5ozQ",
-	"qfO5mUjnGHSOv2y8m362d6xpcDDyXZntxDMnzdSttGsb8/6U44SZ2VbCthMxrdnkECRtWrnZpOXlvN//",
-	"sypp9zgkUsO0upBw/ZVSX1n4n+O/49i1io2m9W+PfTQHv9GBtYZgwwOoJXb3z5+KykN8/BTFnwAAAP//",
-	"6EpRMoQNAAA=",
+	"H4sIAAAAAAAC/+xYwW7UMBD9FWQ4hu6K3nLbClRVINpF6qnqwZvMbt0mtms7oKjKgc0BfoAjdyoQF06V",
+	"+Bv/CLKTeBM26QapLZD2tJYnHs+892bG2gsUsJgzClRJ5F8gGZxAjO1yQuU7EGbFBeMgFAG7j92+Sjkg",
+	"H0klCF2gzCtNe2GrkciDZBaRoGacMRYBpsYakbPCfWkiVMEChDGdJyAVYbTVa2XsuFSRGKTCMTfWORMx",
+	"VshHIVbw1JiQt34kkR0pZB4ScJ4QASHyj1bJuiONaGpxV8CgGghVxvUQj100bHYKgTLRPIc5TiL1Qggm",
+	"3oDkjEpY5yQGKfEC2oNe8/mKnEEXrx04mmA7TH+PAQd7jYoGA2XUmzCe1gTWxCQQgBWEO+lkr122/6g2",
+	"u3RYz6cm2+vhOZRtbYDiGFrT+mP2rKf1i833hM6Z9URUZGz7CyLILlAQWDHxaHJg0ngLQloK0HhrvLVt",
+	"YmAcKOYE+WjbbnmIY3Vi4x4VYrFrzqQyvyYvXDGFDphUk6pgTcQg1Q4LUysIRhVQewhzHpHAHhudykIC",
+	"Rfs0qycC5shHj0er/joqm+uodJ41EVEiAbtRFLkN8Nl4bH5CkIEgvBAa2n9pUgyLxnBjQbU2Ghti83ad",
+	"f9D5J7281PlXnX/U77/r5RedX+r8p86/6eWVzj/r/IdeXpnTmecAH83SqvEsoAX2XShRlzvFh4Y0gWNQ",
+	"lq2jC0TM/ecJiLRSjY84CMJC9DuQXi3rNRm2e1KMv+7jx02m7Lidrd50EAWx7CsWVx9YCJy2MfP/6mLa",
+	"aJQb1TGtd7ceGml0w/46eaD3hug9dBNhI7WH1VDoQasbIA+U3hGl7pHePTjLzn0bY9O6vi9D00Ldq3YM",
+	"LAOpnILh4dVNNYA21M509VC/jfpx7u9LDTnYez8xqq8G9shYMT/g2urVLGsED6FhDplYg7m8jkv7v8Rd",
+	"oGwvGhjC3jVzyAF78zOogPI+zJ8s+xUAAP//RSiuAlwXAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -24,6 +24,7 @@ paths:
     post:
       operationId: PostUser
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -37,10 +38,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DefaultErrorResponse"
+  /questions:
+    post:
+      operationId: PostQuestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Question"
+      responses:
+        "200":
+          description: OK
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
   /answers:
     post:
       operationId: PostAnswer
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -48,6 +68,72 @@ paths:
       responses:
         "200":
           description: OK
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /likes:
+    post:
+      operationId: PostLike
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Like"
+      responses:
+        "200":
+          description: OK
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /questions/byQuestionId:
+    get:
+      operationId: GetQuestionsByQuestionId
+      parameters:
+        - name: questionId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+        default:
+          description: デフォルトのエラーレスポンス
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultErrorResponse"
+  /questions/byUserId:
+    get:
+      operationId: GetQuestionsByUserId
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
         default:
           description: デフォルトのエラーレスポンス
           content:
@@ -78,11 +164,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DefaultErrorResponse"
-  /answers/byAnswerId:
+  /answers/byQuestionId:
     get:
-      operationId: GetAnswerByAnswerId
+      operationId: GetAnswersByQuestionId
       parameters:
-        - name: answerId
+        - name: questionId
           in: query
           required: true
           schema:
@@ -93,39 +179,62 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Answer"
+                type: array
+                items:
+                  $ref: "#/components/schemas/Answer"
         default:
           description: デフォルトのエラーレスポンス
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DefaultErrorResponse"
-  /questions:
+  /answers/byLike:
     get:
-      operationId: GetQuestion
+      operationId: GetAnswersByLike
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: topN
+          in: query
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Question"
+                type: array
+                items:
+                  $ref: "#/components/schemas/Answer"
         default:
           description: デフォルトのエラーレスポンス
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DefaultErrorResponse"
-  /questions/generate:
-    post:
-      operationId: GenerateQuestion
+  /likes/byUserId:
+    get:
+      operationId: GetLikesByUserId
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Question"
+                type: array
+                items:
+                  $ref: "#/components/schemas/Like"
         default:
           description: デフォルトのエラーレスポンス
           content:
@@ -139,21 +248,28 @@ components:
       properties:
         userId:
           type: string
+        name:
+          type: string
       required:
         - userId
+        - name
     Answer:
       type: object
       properties:
         answerId:
-          type: integer
+          type: string
         userId:
           type: string
         questionId:
-          type: integer
+          type: string
         question:
           type: string
         answer:
           type: string
+        isPublic:
+          type: boolean
+        likes:
+          type: integer
         timestamp:
           type: string
           format: date-time
@@ -163,13 +279,19 @@ components:
         - questionId
         - question
         - answer
+        - isPublic
+        - likes
         - timestamp
     Question:
       type: object
       properties:
         questionId:
-          type: integer
+          type: string
         question:
+          type: string
+        createdByAI:
+          type: boolean
+        userId:
           type: string
         timestamp:
           type: string
@@ -177,6 +299,28 @@ components:
       required:
         - questionId
         - question
+        - createdByAI
+        - userId
+        - timestamp
+    Like:
+      type: object
+      properties:
+        userId:
+          type: string
+        answerId:
+          type: string
+        questionId:
+          type: string
+        likeId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - userId
+        - answerId
+        - questionId
+        - likeId
         - timestamp
     DefaultErrorResponse:
       type: object
